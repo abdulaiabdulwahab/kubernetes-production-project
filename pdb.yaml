@@ -1,0 +1,16 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+
+metadata:
+  name: store-web-pdb
+  namespace: store-prod
+
+spec:
+
+  # At most one Pod may be unavailable
+  maxUnavailable: 1
+
+  selector:
+
+    matchLabels:
+      app: store-web

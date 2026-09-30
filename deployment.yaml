@@ -1,0 +1,129 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: store-web
+  namespace: store-prod
+
+spec:
+
+  # We will let our HPA manage replica count,
+  # so replicas is intentionally omitted.
+
+  selector:
+
+    matchLabels:
+      app: store-web
+
+  # Control how Kubernetes performs updates
+  strategy:
+
+    type: RollingUpdate
+
+    rollingUpdate:
+
+      # Never make more than one extra Pod
+      maxSurge: 1
+
+      # Keep all existing Pods available where possible
+      maxUnavailable: 0
+
+  template:
+
+    metadata:
+
+      labels:
+        app: store-web
+
+    spec:
+
+      containers:
+
+        - name: nginx
+
+          image: nginx:mainline-alpine
+
+          ports:
+
+            - containerPort: 80
+
+          # Non-sensitive configuration
+          env:
+
+            - name: APP_ENVIRONMENT
+
+              valueFrom:
+
+                configMapKeyRef:
+                  name: store-config
+                  key: APP_ENVIRONMENT
+
+            # Sensitive configuration
+            - name: API_KEY
+
+              valueFrom:
+
+                secretKeyRef:
+                  name: store-secret
+                  key: API_KEY
+
+          # CPU and memory reservations
+          resources:
+
+            requests:
+              cpu: "20m"
+              memory: "32Mi"
+
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+
+          # Kubernetes asks:
+          # "Has this application finished starting?"
+          startupProbe:
+
+            httpGet:
+              path: /
+              port: 80
+
+            failureThreshold: 30
+            periodSeconds: 2
+
+          # Kubernetes asks:
+          # "Should I send traffic to this Pod?"
+          readinessProbe:
+
+            httpGet:
+              path: /
+              port: 80
+
+            initialDelaySeconds: 2
+            periodSeconds: 5
+
+          # Kubernetes asks:
+          # "Is this container healthy?"
+          livenessProbe:
+
+            httpGet:
+              path: /
+              port: 80
+
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          volumeMounts:
+
+            - name: web-content
+
+              mountPath: /usr/share/nginx/html
+
+      volumes:
+
+        - name: web-content
+
+          configMap:
+            name: store-config
+            items:
+
+              - key: index.html
+                path: index.html
